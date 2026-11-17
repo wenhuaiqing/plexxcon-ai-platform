@@ -3,7 +3,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import { writeToken } from "../config.js";
+import { PUBLIC_WRITES, writeToken } from "../config.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 
 export function useInputStyle() {
@@ -155,7 +155,7 @@ export function useToast() {
 // What the read-only role sees where a write would be.
 export function ReadOnlyNotice({ what, role }) {
   const { t } = useTheme();
-  if (writeToken()) return null;
+  if (canWrite()) return null;
   return (
     <div style={{
       background: t.statusBg.neutral, borderLeft: `3px solid ${t.status.neutral}`, borderRadius: 10,
@@ -168,7 +168,7 @@ export function ReadOnlyNotice({ what, role }) {
 }
 
 export function canWrite() {
-  return Boolean(writeToken());
+  return PUBLIC_WRITES || Boolean(writeToken());
 }
 
 export function useOnline() {

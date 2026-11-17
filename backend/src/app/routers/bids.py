@@ -1,4 +1,4 @@
-"""Bid Summary. Reads are open (the read-only role); drafts and submission need the token."""
+"""Bid Summary. Reads are open; drafts and submission go through the write gate (auth.require_write)."""
 
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ from pydantic import BaseModel, Field
 
 from src.app.calc import bid as calc
 from src.app.services import bids
-from src.app.services.auth import actor, require_write_token
+from src.app.services.auth import actor, require_write
 from src.app.services.rate_limit import enforce_orb_rate_limit
 
 router = APIRouter(prefix="/api/bids", tags=["bid summary"])
-write = [Depends(require_write_token)]
+write = [Depends(require_write)]
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 

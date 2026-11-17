@@ -80,6 +80,21 @@ _per_ip = SlidingWindowLimiter(settings.orb_rate_limit_per_ip, settings.orb_rate
 _global = SlidingWindowLimiter(settings.orb_rate_limit_global, settings.orb_rate_limit_window_seconds)
 
 
+_write_per_ip = SlidingWindowLimiter(settings.write_rate_limit_per_ip, settings.orb_rate_limit_window_seconds)
+_write_global = SlidingWindowLimiter(settings.write_rate_limit_global, settings.orb_rate_limit_window_seconds)
+
+
+def enforce_write_rate_limit(request: Request) -> None:
+    """The open demo's writes. Generous - autosave and presence are writes -
+    but a script cannot fill the database."""
+    if not _write_global.check("global"):
+        raise HTTPException(status_code=429, detail="The demo has taken all the changes it will for now. Please try again later.",
+                            headers={"Retry-After": str(int(settings.orb_rate_limit_window_seconds))})
+    if not _write_per_ip.check(client_ip(request)):
+        raise HTTPException(status_code=429, detail="Too many changes from this address. Please slow down.",
+                            headers={"Retry-After": str(int(settings.orb_rate_limit_window_seconds))})
+
+
 async def enforce_orb_rate_limit(request: Request) -> None:
     """FastAPI dependency. Raises 429 when either gate is exceeded.
     The operator (demo write token) is exempt so live demos are never

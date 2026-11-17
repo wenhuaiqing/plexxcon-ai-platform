@@ -1,6 +1,7 @@
-// Drive the operator's path in a real browser: a self-approval refused, a
+// Drive a visitor's path in a real browser - no token - : a self-approval refused, a
 // second person's decision recorded, a parsed docket confirmed, a bid
-// resubmitted as a new revision, a soft delete undone, then reset.
+// resubmitted as a new revision, a soft delete undone. The token is used only
+// for the reset at the end, which visitors cannot do.
 //
 //   BASE=http://localhost:5261 TOKEN=<DEMO_WRITE_TOKEN> node evals/flow.mjs
 
@@ -31,9 +32,8 @@ const actAs = async (who, url) => {
   await page.goto(url, { waitUntil: "networkidle" });
 };
 
-await page.goto(`${BASE}/trade-planner?write_token=${TOKEN}`, { waitUntil: "networkidle" });
-await expect("the token unlocks writes and leaves the URL", page.getByText("Operator: writes enabled"));
-if (page.url().includes("write_token")) throw new Error("token still in the URL");
+await page.goto(`${BASE}/trade-planner`, { waitUntil: "networkidle" });
+await expect("a visitor gets the open demo, no token", page.getByText("Open demo: changes reset when idle"));
 
 await actAs("Site supervisor B", `${BASE}/trade-planner?tab=tracking&request=TR-0003`);
 await page.getByLabel("Feedback").fill("Looks right to me");

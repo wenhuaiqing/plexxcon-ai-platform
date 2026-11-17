@@ -46,5 +46,10 @@ renders every page on desktop and phone; `TOKEN=... node frontend/evals/flow.mjs
 drives the write path. `uv run python ../evals/run_agent_eval.py` grades the
 agent (needs a model key in `.env`).
 
-The public link is read-only. Writes need the operator's token
-(`?write_token=...`), which is never published.
+The public link is an open demo: any visitor can use the three workflow
+systems, acting as any of the demo people, under a per-address write limit.
+The rules still refuse - nobody approves their own request - and every refusal
+is audit-logged. Changes live in a working copy that returns to the build on
+every cold start. Resetting on demand needs the operator's token
+(`?write_token=...`), which is never published. `PUBLIC_WRITES=false` on the
+server and `VITE_PUBLIC_WRITES=false` at build restore the token gate on every write.

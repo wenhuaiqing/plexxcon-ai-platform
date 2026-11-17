@@ -3,7 +3,7 @@ import { Menu, Moon, Sun, X } from "lucide-react";
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import UnifiedOrb from "./components/common/UnifiedOrb.jsx";
-import { DISCLAIMER, actorName, setActorName, writeToken } from "./config.js";
+import { DISCLAIMER, PUBLIC_WRITES, actorName, setActorName, writeToken } from "./config.js";
 import { useTheme } from "./context/ThemeContext.jsx";
 import { useApi } from "./lib/api.js";
 import { useIsMobile } from "./lib/useMediaQuery.js";
@@ -118,6 +118,7 @@ function Header({ narrow, onMenu, menuOpen }) {
   const { data: meta } = useApi("/api/meta");
   const current = ROUTES.find((r) => location.pathname.startsWith(r.to)) || ROUTES[0];
   const operator = Boolean(writeToken());
+  const writable = PUBLIC_WRITES || operator;
   return (
     <header style={{
       minHeight: 56, borderBottom: `1px solid ${t.headerBorder}`, background: narrow ? t.sidebarBg : t.headerBg,
@@ -142,8 +143,8 @@ function Header({ narrow, onMenu, menuOpen }) {
       {!narrow && meta && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 11.5, color: t.headerMuted, flexWrap: "wrap" }}>
           <Pill tone="neutral">Synthetic data</Pill>
-          {operator ? <ActingAs people={meta.people} /> : null}
-          <Pill tone={operator ? "good" : "neutral"}>{operator ? "Operator: writes enabled" : "Read-only link"}</Pill>
+          {writable ? <ActingAs people={meta.people} /> : null}
+          <Pill tone={writable ? "good" : "neutral"}>{operator ? "Operator" : writable ? "Open demo: changes reset when idle" : "Read-only link"}</Pill>
           <Pill tone={meta.llm_configured ? "ai" : "neutral"}>{meta.llm_configured ? `Model: ${meta.llm_model}` : "No model key: catalogue answers only"}</Pill>
         </div>
       )}

@@ -8,11 +8,11 @@ from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFil
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.app.services import msr
-from src.app.services.auth import actor, require_write_token
+from src.app.services.auth import actor, require_write
 from src.app.services.rate_limit import enforce_orb_rate_limit
 
 router = APIRouter(prefix="/api/msr", tags=["material supply register"])
-write = [Depends(require_write_token)]
+write = [Depends(require_write)]
 
 
 class Enrol(BaseModel):
@@ -149,6 +149,6 @@ def commit(doc_id: str, body: Commit, request: Request) -> dict:
     return msr.commit_document(actor(request), doc_id, body.model_dump())
 
 
-@router.post("/projects/{project_id}/upload", dependencies=write)
+@router.post("/projects/{project_id}/upload", dependencies=[*write, Depends(enforce_orb_rate_limit)])
 async def upload(project_id: str, request: Request, reg: str = Form(..., alias="register"), file: UploadFile = File(...)) -> dict:
     return msr.upload(actor(request), project_id, reg, file.filename or "upload.pdf", await file.read(1_500_001))

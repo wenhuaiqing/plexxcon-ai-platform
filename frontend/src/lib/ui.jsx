@@ -100,24 +100,27 @@ export function PageHeader({ title, subtitle, right, brief }) {
 //
 // The hover is a change of fill, not a dim or a shadow, so the affordance
 // survives a shared screen at whatever the viewer's compression does to it.
-export function CTAButton({ onClick, icon: Icon, children, style, disabled }) {
+export function CTAButton({ onClick, icon: Icon, children, style, disabled, title }) {
   const { t } = useTheme();
   const [hover, setHover] = useState(false);
+  // A disabled button never takes the hover fill: it would read as clickable.
+  const lit = hover && !disabled;
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onFocus={() => setHover(true)}
       onBlur={() => setHover(false)}
       style={{
         display: "inline-flex", alignItems: "center", gap: 7,
-        background: hover ? t.ctaHoverBg : t.ctaBg,
-        color: hover ? t.ctaHoverText : t.ctaText,
+        background: lit ? t.ctaHoverBg : t.ctaBg,
+        color: lit ? t.ctaHoverText : t.ctaText,
         border: "none", borderRadius: 999, padding: "9px 16px",
-        fontSize: 12.5, fontWeight: 700, cursor: disabled ? "wait" : "pointer",
+        fontSize: 12.5, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
         fontFamily: "inherit", opacity: disabled ? 0.6 : 1,
         transition: "background-color .15s ease, color .15s ease",
         ...style,
@@ -585,7 +588,7 @@ export function signedPct(value, digits = 1) {
 }
 
 // A secondary action: outlined, so it never competes with the page's CTA.
-export function Button({ onClick, icon: Icon, children, disabled, tone }) {
+export function Button({ onClick, icon: Icon, children, disabled, tone, title }) {
   const { t } = useTheme();
   const colour = tone === "ai" ? t.accent2 : t.accent;
   return (
@@ -593,11 +596,12 @@ export function Button({ onClick, icon: Icon, children, disabled, tone }) {
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       style={{
         display: "inline-flex", alignItems: "center", gap: 6,
         background: "transparent", color: colour, border: `1px solid ${colour}`,
         borderRadius: 999, padding: "6px 13px", fontSize: 12, fontWeight: 650,
-        cursor: disabled ? "wait" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.55 : 1,
+        cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: disabled ? 0.55 : 1,
       }}
     >
       {Icon && <Icon size={13} />}

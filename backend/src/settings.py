@@ -48,6 +48,13 @@ class Settings(BaseSettings):
 
     # Shared secret for write endpoints. Fail closed: empty refuses writes.
     demo_write_token: str = ""
+    # Open demo: any visitor can use the three workflow systems. Their changes
+    # live in the working copy, which goes back to the build on every cold
+    # start (scale to zero) and on the operator's reset. False restores the
+    # token gate on every write.
+    public_writes: bool = True
+    write_rate_limit_per_ip: int = 300
+    write_rate_limit_global: int = 3000
 
     # Stamped into the image at build time; shown by /api/meta.
     git_sha: str = ""

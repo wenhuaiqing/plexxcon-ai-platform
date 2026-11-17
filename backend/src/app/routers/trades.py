@@ -8,10 +8,10 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from src.app.services import trades
-from src.app.services.auth import actor, require_write_token
+from src.app.services.auth import actor, require_write
 
 router = APIRouter(prefix="/api/trades", tags=["trade planner"])
-write = [Depends(require_write_token)]
+write = [Depends(require_write)]
 
 
 class Scope(BaseModel):

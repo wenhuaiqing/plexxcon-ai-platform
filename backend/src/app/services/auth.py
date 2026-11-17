@@ -1,13 +1,14 @@
 """Shared-secret gate for the demo's write paths.
 
-The public demo has no user accounts. Anything that changes state - a saved
-draft, a submitted revision, a review decision, a confirmed docket - is gated
-on one secret sent as `X-Write-Token`. The operator unlocks a browser session
-by visiting once with `?write_token=<value>`; the frontend keeps it in
-sessionStorage and adds the header to every call. Without it the site is the
-read-only role: every register, report and audit log, and no writes.
+The public demo has no user accounts. With PUBLIC_WRITES on (the default)
+anyone may use the three workflow systems - a saved draft, a submitted
+revision, a review decision, a confirmed docket - under a per-address write
+limit; the working copy returns to the build on every cold start. Resetting the
+demo always needs the operator's secret, sent as `X-Write-Token` (visit once
+with `?write_token=<value>`; the frontend keeps it in sessionStorage).
 
-Fail closed: no token configured means writes are refused everywhere.
+With PUBLIC_WRITES off every write needs the secret. Fail closed: no token
+configured then means writes are refused everywhere.
 
 Authority comes from the token. The actor name (`X-Actor`) is recorded and
 used for separation of duties - nobody decides their own request - but is
@@ -47,6 +48,17 @@ async def require_write_token(request: Request) -> None:
             status_code=401,
             detail="This needs the operator's write token. The public link is the read-only role.",
         )
+
+
+async def require_write(request: Request) -> None:
+    """FastAPI dependency for the workflow systems' writes."""
+    if has_write_token(request):
+        return
+    if not settings.public_writes:
+        await require_write_token(request)
+        return
+    from src.app.services.rate_limit import enforce_write_rate_limit  # rate_limit imports this module
+    enforce_write_rate_limit(request)
 
 
 def actor(request: Request) -> str:

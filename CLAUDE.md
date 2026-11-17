@@ -57,8 +57,9 @@ Operator path: `TOKEN=<DEMO_WRITE_TOKEN> node evals/flow.mjs`.
   tests assert each is found from the data, never from the reference.
 - A feature owns its schema: add a numbered file to `migrations/<feature>/`, never
   edit one that has run (the runner checks checksums).
-- Every write is token-gated, audit-logged, and refused - not warned - when the
-  rule says no. Nobody decides their own request. Nothing a parser reads is
+- Every write goes through `auth.require_write` (open to visitors under a rate
+  limit while PUBLIC_WRITES is on; reset always needs the token), is audit-logged,
+  and is refused - not warned - when the rule says no. Nobody decides their own request. Nothing a parser reads is
   recorded until a person confirms it. Deletes in the register are soft.
 - The data agent reads only the `v_*` views (migrations/agent), through the SQL
   gate, on a connection with external access off. It cannot write. Numbers on

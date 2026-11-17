@@ -400,7 +400,7 @@ function SummaryForm({ reference, start, onSubmitted }) {
             <StartFrom reference={reference} onPick={(id) => begin({ bid_id: id })} />
           </Card>
           <Card title="New blank summary" hint="A private draft. It becomes the tender's shared draft when you link it to a CRM opportunity.">
-            <CTAButton icon={FilePlus2} disabled={!canWrite()} onClick={() => begin({ blank: true })}>New blank summary</CTAButton>
+            <CTAButton icon={FilePlus2} disabled={!canWrite()} title={canWrite() ? undefined : READ_ONLY} onClick={() => begin({ blank: true })}>New blank summary</CTAButton>
           </Card>
           <Card title="Resume a draft" hint="Drafts survive closing the tab. A shared draft shows in the register as In progress.">
             {!drafts ? <Loading /> : drafts.length === 0 ? <p style={{ fontSize: 13, color: t.textMuted }}>No drafts open.</p> : (
@@ -584,6 +584,8 @@ function SummaryForm({ reference, start, onSubmitted }) {
   );
 }
 
+const READ_ONLY = "Read-only link: starting a summary needs the write token";
+
 function StartFrom({ reference, onPick }) {
   const { data } = useApi("/api/bids");
   const [pick, setPick] = useState("");
@@ -592,7 +594,7 @@ function StartFrom({ reference, onPick }) {
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
       <Choice label="Tender" value={pick} onChange={setPick} style={{ flex: 1, minWidth: 160 }}
         options={[{ value: "", label: "Choose a tender..." }, ...data.map((b) => ({ value: b.bid_id, label: `${b.bid_number} ${b.bid_name} (rev ${b.latest_revision})` }))]} />
-      <CTAButton icon={Play} disabled={!pick || !canWrite()} onClick={() => onPick(pick)}>Start</CTAButton>
+      <CTAButton icon={Play} disabled={!pick || !canWrite()} title={!canWrite() ? READ_ONLY : !pick ? "Choose a tender first" : undefined} onClick={() => onPick(pick)}>Start</CTAButton>
       <span hidden>{reference.sections.length}</span>
     </div>
   );

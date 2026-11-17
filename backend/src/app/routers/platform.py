@@ -30,7 +30,7 @@ def meta() -> dict:
         "version": settings.git_sha or "dev", "uptime_seconds": int(time.time() - STARTED), "synthetic_data": True,
         "today": ref.DEMO_TODAY.isoformat(), "ledger_to": ref.LEDGER_END.isoformat(),
         "llm_configured": llm.configured(), "llm_model": settings.llm_chat_model if llm.configured() else None,
-        "writes_enabled": bool(settings.demo_write_token), "build_seconds": db.scalar("SELECT v FROM kv WHERE k = 'build_seconds'"),
+        "writes_enabled": settings.public_writes or bool(settings.demo_write_token), "writes_public": settings.public_writes, "build_seconds": db.scalar("SELECT v FROM kv WHERE k = 'build_seconds'"),
         "people": ref.PEOPLE,
     }
 

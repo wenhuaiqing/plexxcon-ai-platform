@@ -6,6 +6,7 @@ from __future__ import annotations
 from tests.conftest import WRITE, as_
 
 from src.app.services import bids, db
+from src.settings import settings
 
 
 def _start(client, actor="Estimator A", **body):
@@ -14,8 +15,21 @@ def _start(client, actor="Estimator A", **body):
     return r.json()
 
 
-def test_writes_need_the_token(client):
+def test_open_demo_lets_visitors_write_and_the_token_gate_still_works(client, monkeypatch):
+    # The open demo: no token, the write goes through, and the actor is still recorded.
+    r = client.post("/api/bids/drafts", json={"blank": True}, headers={"X-Actor": "Visitor"})
+    assert r.status_code == 200, r.text
+    # Closed: the same write needs the operator's token.
+    monkeypatch.setattr(settings, "public_writes", False)
     assert client.post("/api/bids/drafts", json={"blank": True}).status_code == 401
+    assert client.post("/api/bids/drafts", json={"blank": True}, headers=WRITE).status_code == 200
+
+
+def test_open_writes_are_rate_limited(client, monkeypatch):
+    from src.app.services import rate_limit
+    monkeypatch.setattr(rate_limit, "_write_per_ip", rate_limit.SlidingWindowLimiter(2, 300))
+    codes = [client.post("/api/bids/drafts", json={"blank": True}).status_code for _ in range(3)]
+    assert codes == [200, 200, 429]
 
 
 def test_new_revision_from_latest_and_submit(client):

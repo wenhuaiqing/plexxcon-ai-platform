@@ -113,7 +113,7 @@ export default function Overview() {
         </Card>
       </Grid>
       <p style={{ fontSize: 12, color: t.textMuted, marginTop: 16 }}>
-        The public link is the read-only role: every register, report and audit log, no writes. A write-enabled link exists for live walkthroughs.
+        This is an open demo: try anything in the three workflow systems. Pick who you are acting as at the top - the rules still refuse what they should, such as approving your own request, and each refusal is in the audit log. Changes go back to the built data whenever the site has been idle.
       </p>
     </>
   );

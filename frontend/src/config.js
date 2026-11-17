@@ -4,11 +4,15 @@ export const DISCLAIMER = "Built for a job application. Not affiliated with or e
 // Same origin in dev (Vite proxy) and in production (nginx sidecar).
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
+// Open demo: every visitor can use the three workflow systems. Changes go to
+// the server's working copy, which returns to the build whenever the site
+// idles. Build with VITE_PUBLIC_WRITES=false (and PUBLIC_WRITES=false on the
+// server) for the token-gated read-only link instead.
+export const PUBLIC_WRITES = import.meta.env.VITE_PUBLIC_WRITES !== "false";
+
 // Operator write token. Open the site once with ?write_token=<value>; it is
 // kept in sessionStorage, scrubbed from the URL, and sent as X-Write-Token.
-// It unlocks every write - drafts, submissions, reviews, confirmed dockets - and
-// exempts the session from the assistant's rate limit. The plain link is the
-// read-only role, and says so when you try.
+// It allows resetting the demo and exempts the session from the rate limits.
 const TOKEN_KEY = "plexxcon_demo_write_token";
 const ACTOR_KEY = "plexxcon_demo_actor";
 
