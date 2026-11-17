@@ -152,3 +152,12 @@ def commit(doc_id: str, body: Commit, request: Request) -> dict:
 @router.post("/projects/{project_id}/upload", dependencies=[*write, Depends(enforce_orb_rate_limit)])
 async def upload(project_id: str, request: Request, reg: str = Form(..., alias="register"), file: UploadFile = File(...)) -> dict:
     return msr.upload(actor(request), project_id, reg, file.filename or "upload.pdf", await file.read(1_500_001))
+
+
+class Sync(BaseModel):
+    supplier: str
+
+
+@router.post("/projects/{project_id}/sync-feed", dependencies=write)
+def sync_feed(project_id: str, body: Sync, request: Request) -> dict:
+    return msr.sync_feed(actor(request), project_id, body.supplier)

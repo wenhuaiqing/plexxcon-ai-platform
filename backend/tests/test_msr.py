@@ -118,3 +118,44 @@ def test_every_seeded_invoice_pdf_parses_back_to_its_total(fresh_db):
         p = supplier_docs.parse(msr.invoice_pdf(inv["invoice_id"]))
         assert p["parser"] != "none", inv
         assert round(float(p["fields"]["total"]) * 100) == inv["total_cents"], inv
+
+
+def _commit_dockets(client, project):
+    for d in db.rows("SELECT doc_id FROM msr_document WHERE kind = 'docket' AND status = 'inbox' AND project_id = ?", [project]):
+        q = msr.parse_document(d["doc_id"])
+        client.post(f"/api/msr/documents/{d['doc_id']}/commit", json={"kind": "docket", "supplier": q["supplier"], "parser": q["parser"],
+                    "delivery_id": q["suggested_delivery_id"], "fields": q["fields"]}, headers=WRITE)
+
+
+def test_supplier_api_sync_saves_what_is_new_and_nothing_twice(client):
+    feed = next(f for f in msr.workspace("2431", "concrete")["feeds"] if f["supplier"] == "Coastal Premix")
+    assert feed["published"] == 3 and feed["saved"] == 0
+    r = client.post("/api/msr/projects/2431/sync-feed", json={"supplier": "Coastal Premix"}, headers=WRITE).json()
+    # The invoice was never emailed: saved. The two dockets were: recognised by number, not saved again.
+    assert [s["kind"] for s in r["saved"]] == ["invoice"]
+    assert len(r["skipped"]) == 2 and all("already in the inbox" in s["why"] for s in r["skipped"])
+    doc = r["saved"][0]["doc_id"]
+    assert db.scalar("SELECT source || '/' || received_by FROM msr_document WHERE doc_id = ?", [doc]) == "api/Coastal Premix API"
+    # A second sync saves nothing.
+    again = client.post("/api/msr/projects/2431/sync-feed", json={"supplier": "Coastal Premix"}, headers=WRITE).json()
+    assert again["saved"] == [] and any(s["why"] == "already saved from the API" for s in again["skipped"])
+    assert next(f for f in msr.workspace("2431", "concrete")["feeds"] if f["supplier"] == "Coastal Premix")["saved"] == 1
+    # Saved is not recorded: the invoice is read by the same parser and confirmed like any other.
+    p = msr.parse_document(doc)
+    assert p["parser"] not in ("none", "ai_fallback") and p["fields"]["invoice_no"] == "CPM-INV-2611B-2431"
+    _commit_dockets(client, "2431")
+    c = client.post(f"/api/msr/documents/{doc}/commit", json={"kind": "invoice", **{k: p[k] for k in ("supplier", "parser", "fields", "lines")}}, headers=WRITE)
+    assert c.status_code == 200
+    assert db.scalar("SELECT recon_status FROM msr_invoice WHERE invoice_id = ?", [c.json()["ref"]]) == "green"
+    assert db.scalar("SELECT count(*) FROM audit_log WHERE action = 'sync supplier API'") == 2
+
+
+def test_dockets_recorded_before_a_sync_are_recognised_in_the_register(client):
+    _commit_dockets(client, "2431")
+    r = client.post("/api/msr/projects/2431/sync-feed", json={"supplier": "Coastal Premix"}, headers=WRITE).json()
+    assert len(r["skipped"]) == 2 and all("already recorded in the register" in s["why"] for s in r["skipped"])
+
+
+def test_a_supplier_without_an_api_is_refused(client):
+    r = client.post("/api/msr/projects/2431/sync-feed", json={"supplier": "Ridgeline Concrete"}, headers=WRITE)
+    assert r.status_code == 404

@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Bar, BarChart } from "recharts";
-import { ArrowLeft, CircleHelp, FileText, Inbox, Plus, Ruler, Search, Trash2, Undo2, Upload } from "lucide-react";
+import { ArrowLeft, CircleHelp, CloudDownload, FileText, Inbox, Plus, Ruler, Search, Trash2, Undo2, Upload } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext.jsx";
 import { api, apiUpload, apiWrite, fmtAud, fmtDate, fmtQty, useApi } from "../../lib/api.js";
 import { Choice, Field, FormGrid, Input, Modal, MountedTabs, ReadOnlyNotice, canWrite, useToast } from "../../lib/kit.jsx";
@@ -313,6 +313,17 @@ function Workspace({ job, register, tab, setRegister, setTab, onBack }) {
     setFormError(null);
     try { await apiWrite(path, { project_id: job, register, ...body }); reset(); toast(msg, { tone: "good" }); reload(); } catch (e) { setFormError(e); }
   };
+  const [syncing, setSyncing] = useState(false);
+  const [synced, setSynced] = useState(null);
+  const sync = async (supplier) => {
+    setSyncing(true);
+    try {
+      const res = await apiWrite(`/api/msr/projects/${job}/sync-feed`, { supplier });
+      setSynced(res);
+      toast(`${supplier} API: ${res.published} published, ${res.saved.length} saved to the inbox, ${res.skipped.length} already held`, { tone: "good", ms: 7000 });
+      reload();
+    } catch (e) { toast(e.message, { tone: "critical", ms: 9000 }); } finally { setSyncing(false); }
+  };
   const upload = async (file) => {
     const form = new FormData();
     form.append("register", register);
@@ -525,6 +536,23 @@ function Workspace({ job, register, tab, setRegister, setTab, onBack }) {
         <Button icon={CircleHelp} onClick={() => setHelp(true)}>?</Button>
       </div>
       <ReadOnlyNotice what="changing a register" role="Contracts administrator" />
+      {data.feeds.length > 0 && (
+        <Card title={<span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}><CloudDownload size={15} /> Supplier API</span>}
+          hint="This supplier publishes its dockets and invoices through an API. A sync saves each new PDF to the inbox below; a document already saved, or a docket already received by email, is not saved twice." style={{ marginBottom: 14 }}>
+          {data.feeds.map((f) => (
+            <div key={f.supplier} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13 }}><b>{f.supplier}</b>: {f.published} documents published for this job, {f.saved} saved from the API so far.</span>
+              {canWrite() && <Button icon={CloudDownload} disabled={syncing} onClick={() => sync(f.supplier)}>{syncing ? "Syncing..." : `Sync from ${f.supplier}`}</Button>}
+            </div>
+          ))}
+          {synced && (
+            <ul style={{ fontSize: 12.5, margin: "10px 0 0", paddingLeft: 18, color: t.textMuted }}>
+              {synced.saved.map((d) => <li key={d.external_ref}>Saved {d.kind} {d.filename} as {d.doc_id}</li>)}
+              {synced.skipped.map((d) => <li key={d.external_ref}>Not saved: {d.external_ref} - {d.why}</li>)}
+            </ul>
+          )}
+        </Card>
+      )}
       {data.inbox.length > 0 && (
         <Card title={<span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}><Inbox size={15} /> Supplier paperwork to review ({data.inbox.length})</span>}
           hint="Received and read, not yet recorded. Nothing a parser reads reaches the register until a person confirms it." style={{ marginBottom: 14 }}>
@@ -532,6 +560,7 @@ function Workspace({ job, register, tab, setRegister, setTab, onBack }) {
             { key: "kind", label: "Type", render: (r) => <span style={{ textTransform: "capitalize" }}>{r.kind}</span> }, { key: "supplier", label: "Supplier" },
             { key: "register", label: "Register", render: (r) => (r.register === "concrete" ? "Concrete" : "Reinforcement") },
             { key: "filename", label: "File", wrap: true }, { key: "received_at", label: "Received", render: (r) => fmtDate(r.received_at) },
+            { key: "source", label: "Via", render: (r) => <Badge tone={r.source === "api" ? "ai" : "neutral"}>{{ api: "API", email: "Email", upload: "Upload" }[r.source] || r.source}</Badge> },
             { key: "go", label: "", render: (r) => <Button onClick={() => { if (r.register !== register) setRegister(r.register); setReview(r.doc_id); }}>Review</Button> },
           ]} />
         </Card>
@@ -567,7 +596,7 @@ export default function MaterialSupply() {
       <PageHeader
         title="Material Supply Register"
         brief="Turn our prototypes into rock-solid tools the whole company runs on"
-        subtitle="Concrete and reinforcement for each job, from the contract budget through delivery dockets to invoice reconciliation at docket level - replacing a spreadsheet per project. Supplier PDFs are read by a parser per supplier, with a model as the fallback, and nothing is recorded until a person confirms it."
+        subtitle="Concrete and reinforcement for each job, from the contract budget through delivery dockets to invoice reconciliation at docket level - replacing a spreadsheet per project. Supplier PDFs arrive by email, upload or the supplier's own API, are read by a parser per supplier with a model as the fallback, and nothing is recorded until a person confirms it."
       />
       {job
         ? <Workspace job={job} register={register} tab={tab} setRegister={(r) => set({ register: r })} setTab={(k) => set({ tab: k })} onBack={() => set({ job: null, tab: null, register: null })} />

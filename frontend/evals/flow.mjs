@@ -74,6 +74,11 @@ await page.screenshot({ path: `${OUT}/flow-submitted.png`, fullPage: true });
 await page.goto(`${BASE}/bid-summary?tab=audit`, { waitUntil: "networkidle" });
 await expect("the submission is in the audit log", page.getByText("B-2629 revision 2").first());
 
+await page.goto(`${BASE}/material-supply?job=2431&register=concrete`, { waitUntil: "networkidle" });
+await page.getByRole("button", { name: "Sync from Coastal Premix" }).click();
+await expect("a supplier API sync saves the new invoice to the inbox", page.getByText(/Saved invoice invoice-CPM-INV-2611B-2431\.pdf/));
+await expect("and recognises dockets already received by email", page.getByText(/already in the inbox/).first());
+
 await page.goto(`${BASE}/balance-sheet`, { waitUntil: "networkidle" });
 await page.getByRole("button", { name: "Drill up" }).click();
 await waitCount(page.getByRole("button", { name: "Entries behind Cash at bank" }), 0, "drill up left the accounts showing");

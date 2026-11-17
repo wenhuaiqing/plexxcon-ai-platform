@@ -185,6 +185,8 @@ CONCRETE_SUPPLIERS = [("CPM", "Coastal Premix"), ("RLC", "Ridgeline Concrete")]
 REO_SUPPLIER = ("SFR", "SteelFix Reinforcing")
 # A supplier whose paperwork has no parser yet: the AI fallback's case.
 UNKNOWN_SUPPLIER = ("HVC", "Hinterland Valley Concrete")
+# Publishes its dockets and invoices through an API as well as by email.
+FEED_SUPPLIER = "Coastal Premix"
 CONCRETE_ITEMS = [("N32/20", 27800), ("N40/20", 29600), ("S40/20", 31200)]   # $/m3 in cents, before the July rise
 REO_ITEMS = [("Cut and bent bar", 198000), ("Mesh", 176000)]                 # $/t in cents
 PRICE_RISE_FROM = date(2026, 7, 1)

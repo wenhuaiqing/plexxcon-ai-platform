@@ -628,6 +628,29 @@ def _material_register(con: duckdb.DuckDBPyConnection, rng: random.Random) -> No
             {"invoice_no": f"{code}-INV-2611A-{first['project_id']}", "date": (today - timedelta(days=2)).isoformat(),
              "job": first["project_id"], "lines": lines})
 
+    # ---- a supplier that publishes through an API: Coastal Premix puts its
+    # dockets and its tax invoice there. The dockets were also emailed (they are
+    # in the inbox above); the invoice was not. A sync saves the invoice and
+    # recognises the dockets, so nothing is recorded twice.
+    feed = []
+    published = ref.DEMO_NOW - timedelta(hours=20)
+    api_dockets = [d for d in docs if d["supplier"] == ref.FEED_SUPPLIER and d["kind"] == "docket"]
+    for d in api_dockets:
+        p = d["payload"]
+        feed.append((f"API-{p['docket_no']}", d["supplier"], d["project_id"], d["register"], "docket",
+                     f"docket-{p['docket_no']}.pdf", published, d["kind"], p))
+    for job in sorted({d["project_id"] for d in api_dockets}):
+        mine = [d["payload"] for d in api_dockets if d["project_id"] == job]
+        lines = []
+        for p in mine:
+            rate = price_at(prices, job, ref.FEED_SUPPLIER, p["item"], date.fromisoformat(p["date"]))
+            lines.append([p["docket_no"], f"{p['item']} delivered {date.fromisoformat(p['date']).strftime('%d/%m/%Y')}",
+                          p["qty_x100"], rate, rhu(p["qty_x100"] * rate, 100)])
+        code = next(c for c, n in ref.CONCRETE_SUPPLIERS if n == ref.FEED_SUPPLIER)
+        number = f"{code}-INV-2611B-{job}"
+        feed.append((f"API-{number}", ref.FEED_SUPPLIER, job, "concrete", "invoice", f"invoice-{number}.pdf", published, "invoice",
+                     {"invoice_no": number, "date": (today - timedelta(days=1)).isoformat(), "job": job, "lines": lines}))
+
     _ins(con, "msr_enrolment", enrol)
     _ins(con, "msr_budget_line", budget)
     _ins(con, "msr_price", prices)
@@ -637,7 +660,11 @@ def _material_register(con: duckdb.DuckDBPyConnection, rng: random.Random) -> No
     _ins(con, "msr_invoice_line", inv_lines)
     from src.app.services import supplier_docs   # the same renderers the app uses
     received = ref.DEMO_NOW - timedelta(days=1)
-    _ins(con, "msr_document", [(d["doc_id"], d["project_id"], d["register"], d["kind"], d["supplier"], d["filename"],
-                                "inbox", received, "Mailbox import", None) for d in docs])
+    con.executemany("""INSERT INTO msr_document (doc_id, project_id, register, kind, supplier, filename, status, received_at,
+                                                 received_by, committed_ref, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    [(d["doc_id"], d["project_id"], d["register"], d["kind"], d["supplier"], d["filename"],
+                      "inbox", received, "Mailbox import", None, "email") for d in docs])
+    _ins(con, "supplier_feed", [(r, s, j, reg, k, f, at, supplier_docs.render(kind, s, payload))
+                                for r, s, j, reg, k, f, at, kind, payload in feed])
     _ins(con, "msr_document_blob", [(d["doc_id"], supplier_docs.render(d["kind"], d["supplier"], d["payload"])) for d in docs])
     _audit(con, sorted(audit, key=lambda r: r[0]))

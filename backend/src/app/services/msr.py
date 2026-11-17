@@ -20,7 +20,7 @@ from fastapi import HTTPException
 
 from src.app.calc.money import rhu, to_cents, to_scaled
 from src.app.pipeline import reference as ref
-from src.app.services import audit, db, msr_recon, supplier_docs
+from src.app.services import audit, db, msr_recon, supplier_docs, supplier_feed
 
 SYSTEM = "material_register"
 REGISTERS = {"concrete": {"label": "Concrete Supply", "unit": "m3", "delivery": "Pour", "docket": "Delivery docket"},
@@ -150,7 +150,7 @@ def workspace(project_id: str, register: str) -> dict[str, Any]:
                           ORDER BY deleted_at IS NOT NULL, invoice_date DESC, invoice_id DESC""", args)
     log = db.rows("""SELECT ts, actor, subject, action, outcome, detail, reason FROM audit_log
                      WHERE system = ? AND project_id = ? ORDER BY audit_id DESC LIMIT 200""", [SYSTEM, project_id])
-    inbox = db.rows("""SELECT doc_id, register, kind, supplier, filename, status, received_at, received_by FROM msr_document
+    inbox = db.rows("""SELECT doc_id, register, kind, supplier, filename, status, received_at, received_by, source FROM msr_document
                        WHERE project_id = ? AND status = 'inbox' ORDER BY doc_id""", [project_id])
     live = [ln for ln in lines if not ln["deleted_at"]]
     live_inv = [i for i in invoices if not i["deleted_at"]]
@@ -183,6 +183,7 @@ def workspace(project_id: str, register: str) -> dict[str, Any]:
                          "invoiced": sum(c["invoiced_amount"] for c in combined)},
         },
         "tracking": lines, "prices": prices, "deliveries": deliveries, "invoices": invoices, "audit": log, "inbox": inbox,
+        "feeds": _feeds(project_id),
         "suppliers": sorted({p["supplier"] for p in prices}), "items": sorted({p["item"] for p in prices if p["kind"] == "base"}),
         "walkthrough": [{"tab": t, "title": title, "text": text} for t, title, text in WALKTHROUGH],
     }
@@ -498,8 +499,76 @@ def upload(actor: str, project_id: str, register: str, filename: str, content: b
     with db.writing() as cur:
         doc_id = _id(cur, "msr_document", "doc_id", "DOC", 4)
         safe = "".join(ch for ch in filename if ch.isalnum() or ch in "-_. ")[:80] or "upload.pdf"
-        cur.execute("INSERT INTO msr_document VALUES (?, ?, ?, ?, ?, ?, 'inbox', ?, ?, NULL)",
+        cur.execute("""INSERT INTO msr_document (doc_id, project_id, register, kind, supplier, filename, status, received_at,
+                                                 received_by, committed_ref, source) VALUES (?, ?, ?, ?, ?, ?, 'inbox', ?, ?, NULL, 'upload')""",
                     [doc_id, project_id, register, proposal["kind"], proposal.get("supplier") or "", safe, audit.now(), actor])
         cur.execute("INSERT INTO msr_document_blob VALUES (?, ?)", [doc_id, content])
         audit.record(cur, actor, SYSTEM, doc_id, "upload document", project_id=project_id, detail=safe)
     return {"doc_id": doc_id}
+
+
+# ------------------------------------------------------- supplier API feeds --
+def _feeds(project_id: str) -> list[dict[str, Any]]:
+    """Suppliers publishing documents for this job through an API, and how many
+    of those have been saved from it. (A docket also received by email is never
+    saved from the API, so 'not saved' would not mean 'still to come'.)"""
+    saved = {r["external_ref"] for r in db.raw("SELECT external_ref FROM msr_document WHERE external_ref IS NOT NULL")}
+    out = []
+    for supplier in supplier_feed.suppliers():
+        listed = supplier_feed.client(supplier).list_documents(project_id)
+        if listed:
+            out.append({"supplier": supplier, "published": len(listed),
+                        "saved": sum(1 for d in listed if d["external_ref"] in saved)})
+    return out
+
+
+def _docket_numbers(project_id: str, supplier: str) -> dict[str, str]:
+    """Docket numbers already held for this job and supplier, and where: in the
+    register, or read from a document waiting in the inbox."""
+    held = {r["docket_no"]: "already recorded in the register" for r in db.raw(
+        """SELECT k.docket_no FROM msr_docket k JOIN msr_delivery v USING (delivery_id)
+           WHERE k.project_id = ? AND v.supplier = ? AND k.deleted_at IS NULL""", [project_id, supplier])}
+    for d in db.raw("""SELECT doc_id, source FROM msr_document
+                       WHERE project_id = ? AND supplier = ? AND kind = 'docket' AND status = 'inbox'""", [project_id, supplier]):
+        no = supplier_docs.parse(document_pdf(d["doc_id"]), "docket").get("fields", {}).get("docket_no")
+        if no:
+            held.setdefault(no, f"already in the inbox ({d['doc_id']}, received by {d['source']})")
+    return held
+
+
+def sync_feed(actor: str, project_id: str, supplier: str) -> dict[str, Any]:
+    """Pull what a supplier has published for a job. A document already saved
+    from the API is skipped by its id; a docket already received another way
+    (the same docket number) is skipped and says where it is. Everything new
+    goes to the inbox, to be confirmed like any other paperwork."""
+    _enrolled(project_id)
+    if supplier not in supplier_feed.suppliers():
+        raise HTTPException(status_code=404, detail=f"{supplier} does not publish documents through an API.")
+    feed = supplier_feed.client(supplier)
+    listed = feed.list_documents(project_id)
+    saved_refs = {r["external_ref"] for r in db.raw("SELECT external_ref FROM msr_document WHERE external_ref IS NOT NULL")}
+    held = _docket_numbers(project_id, supplier)
+    saved, skipped = [], []
+    for d in listed:
+        ref_ = d["external_ref"]
+        if ref_ in saved_refs:
+            skipped.append({"external_ref": ref_, "kind": d["kind"], "why": "already saved from the API"})
+            continue
+        pdf = feed.download(ref_)
+        proposal = supplier_docs.parse(pdf, d["kind"])
+        no = proposal.get("fields", {}).get("docket_no") if d["kind"] == "docket" else None
+        if no and no in held:
+            skipped.append({"external_ref": ref_, "kind": d["kind"], "why": f"docket {no} {held[no]}"})
+            continue
+        with db.writing() as cur:
+            doc_id = _id(cur, "msr_document", "doc_id", "DOC", 4)
+            cur.execute("""INSERT INTO msr_document (doc_id, project_id, register, kind, supplier, filename, status, received_at,
+                                                     received_by, committed_ref, source, external_ref)
+                           VALUES (?, ?, ?, ?, ?, ?, 'inbox', ?, ?, NULL, 'api', ?)""",
+                        [doc_id, project_id, d["register"], d["kind"], supplier, d["filename"], audit.now(), f"{supplier} API", ref_])
+            cur.execute("INSERT INTO msr_document_blob VALUES (?, ?)", [doc_id, pdf])
+        saved.append({"doc_id": doc_id, "external_ref": ref_, "kind": d["kind"], "filename": d["filename"]})
+    with db.writing() as cur:
+        audit.record(cur, actor, SYSTEM, supplier, "sync supplier API", project_id=project_id,
+                     detail=f"{len(listed)} published, {len(saved)} saved, {len(skipped)} skipped")
+    return {"supplier": supplier, "published": len(listed), "saved": saved, "skipped": skipped}
