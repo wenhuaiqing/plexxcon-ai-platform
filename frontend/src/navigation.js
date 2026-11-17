@@ -12,9 +12,9 @@ export const MODULE_META = {
   BidSummary:     { label: "Bid Summary",              icon: ClipboardList, group: "Workflow systems", order: 1, slug: "bid-summary" },
   TradePlanner:   { label: "Trade Planner",            icon: HardHat,       group: "Workflow systems", order: 2, slug: "trade-planner" },
   MaterialSupply: { label: "Material Supply Register", icon: Truck,         group: "Workflow systems", order: 3, slug: "material-supply" },
-  ProfitAndLoss:  { label: "Profit and Loss",          icon: TrendingUp,    group: "Finance", order: 4, slug: "profit-and-loss" },
-  BalanceSheet:   { label: "Balance Sheet",            icon: Scale,         group: "Finance", order: 5, slug: "balance-sheet" },
-  RelatedParty:   { label: "Related Party Balance",    icon: Network,       group: "Finance", order: 6, slug: "related-party" },
+  ProfitAndLoss:  { label: "Profit and Loss",          icon: TrendingUp,    group: "Finance reports", order: 4, slug: "profit-and-loss" },
+  BalanceSheet:   { label: "Balance Sheet",            icon: Scale,         group: "Finance reports", order: 5, slug: "balance-sheet" },
+  RelatedParty:   { label: "Related Party Balance",    icon: Network,       group: "Finance reports", order: 6, slug: "related-party" },
   DataAgent:      { label: "Data agent",               icon: Bot,           group: "AI", order: 7, slug: "data-agent" },
   FirstDays:      { label: "First 90 days",            icon: Milestone,     group: "The role", order: 8, slug: "first-90-days" },
 };
@@ -32,3 +32,8 @@ export function getRoutes() {
 }
 
 export const FINANCE_ICON = Landmark;
+
+// A line under a sidebar heading, where the heading alone undersells the group.
+export const GROUP_NOTES = {
+  "Workflow systems": "Where the work is done. Modelled on systems I built that run in production.",
+};

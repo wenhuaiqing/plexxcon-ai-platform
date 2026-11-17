@@ -7,7 +7,7 @@ import { DISCLAIMER, PUBLIC_WRITES, actorName, setActorName, writeToken } from "
 import { useTheme } from "./context/ThemeContext.jsx";
 import { useApi } from "./lib/api.js";
 import { useIsMobile } from "./lib/useMediaQuery.js";
-import { getRoutes } from "./navigation.js";
+import { GROUP_NOTES, getRoutes } from "./navigation.js";
 
 const ROUTES = getRoutes();
 
@@ -26,6 +26,9 @@ function NavList({ onPick }) {
             fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
             color: t.sidebarGroup, padding: "6px 10px 4px",
           }}>{g.name}</div>
+          {GROUP_NOTES[g.name] && (
+            <div style={{ fontSize: 11, lineHeight: 1.4, color: t.sidebarGroup, padding: "0 10px 6px", opacity: 0.9 }}>{GROUP_NOTES[g.name]}</div>
+          )}
           {g.items.map((r) => {
             const Icon = r.icon;
             return (

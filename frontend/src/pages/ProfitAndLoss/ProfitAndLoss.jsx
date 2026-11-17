@@ -7,6 +7,9 @@ import { fmtAud, fmtDate, fmtMonth, useApi } from "../../lib/api.js";
 import {
   Callout, Card, ChartFrame, ChartOrTable, ErrorNote, Grid, Loading, PageHeader, SectionTitle, Select, Stat, Table, pct, useChartParts,
 } from "../../lib/ui.jsx";
+import { DrillBar, DrillLink, EntriesDrawer, SectionToggle, useDrill } from "../../lib/statement.jsx";
+
+const SECTIONS = ["Revenue", "Cost of sales", "Overheads", "Other income"];
 
 export function EntityPicker({ options, value, onChange }) {
   return <Select label="Entity" value={value} onChange={onChange} options={(options?.entities || []).map((e) => ({ value: e.entity_id, label: e.name }))} />;
@@ -19,6 +22,7 @@ export default function ProfitAndLoss() {
   const [fy, setFy] = useState("");
   const { data, error } = useApi(`/api/finance/pnl?entity=${entity}${fy ? `&fin_year=${fy}` : ""}`);
   const parts = useChartParts();
+  const drill = useDrill(SECTIONS);
 
   const right = options && (
     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -35,7 +39,9 @@ export default function ProfitAndLoss() {
   const rows = [];
   for (const s of data.sections) {
     rows.push({ kind: "head", name: s.section });
-    for (const l of s.lines) rows.push({ kind: "line", name: l.name, code: l.account_code, months: l.months, ytd: l.ytd, prior: l.prior_ytd });
+    if (drill.isOpen(s.section)) {
+      for (const l of s.lines) rows.push({ kind: "line", name: l.name, code: l.account_code, months: l.months, ytd: l.ytd, prior: l.prior_ytd });
+    }
     rows.push({ kind: "total", name: `Total ${s.section.toLowerCase()}`, months: s.total.months, ytd: s.total.ytd, prior: s.total.prior_ytd });
     if (s.section === "Cost of sales") {
       rows.push({ kind: "result", name: "Gross profit", months: data.gross_profit.months, ytd: data.gross_profit.ytd, prior: data.gross_profit.prior_ytd });
@@ -49,15 +55,30 @@ export default function ProfitAndLoss() {
   rows.push({ kind: "result", name: "Net profit", months: data.net_before_difference.months, ytd: tot.net_profit_ytd, prior: data.net_before_difference.prior_ytd, final: true });
 
   const money = (v) => (v == null ? "" : fmtAud(v));
+  const entityName = options?.entities.find((e) => e.entity_id === entity)?.name;
+  const open = (r, month, figure) => drill.show({
+    statement: "pnl", entity, entityName, account: r.code, fin_year: data.fin_year, month, figure,
+    name: month ? `${r.name}, ${fmtMonth(month)}` : `${r.name}, ${data.fy_label} to date`,
+  });
+  const nameCell = (r) => {
+    if (r.kind === "head") return <SectionToggle name={r.name} open={drill.isOpen(r.name)} onToggle={() => drill.toggle(r.name)} />;
+    if (r.kind !== "line") return r.name;
+    return <DrillLink label={`Entries behind ${r.name}, year to date`} onClick={() => open(r, null, r.ytd)}>{r.name}</DrillLink>;
+  };
+  const monthCell = (r, i) => {
+    if (r.kind === "head") return "";
+    if (r.kind !== "line" || !r.months[i]) return money(r.months[i]);
+    return <DrillLink label={`Entries behind ${r.name}, ${fmtMonth(months[i])}`} onClick={() => open(r, months[i], r.months[i])}>{money(r.months[i])}</DrillLink>;
+  };
   const columns = [
     { key: "name", label: "Account", wrap: true, render: (r) => (
       <span style={{
         fontWeight: r.kind === "line" ? 450 : 700, paddingLeft: r.kind === "line" ? 12 : 0,
         color: r.kind === "flag" ? t.status.warning : r.kind === "head" ? t.accent : t.text,
         textTransform: r.kind === "head" ? "uppercase" : "none", fontSize: r.kind === "head" ? 11 : 13, letterSpacing: r.kind === "head" ? "0.06em" : 0,
-      }}>{r.name}</span>
+      }}>{nameCell(r)}</span>
     ) },
-    ...months.map((m, i) => ({ key: m, label: fmtMonth(m), align: "right", render: (r) => (r.kind === "head" ? "" : money(r.months[i])) })),
+    ...months.map((m, i) => ({ key: m, label: fmtMonth(m), align: "right", render: (r) => monthCell(r, i) })),
     { key: "ytd", label: "Year to date", align: "right", render: (r) => (r.kind === "head" ? "" : <b style={{ fontWeight: r.kind === "line" ? 500 : 750 }}>{money(r.ytd)}</b>) },
     ...(data.has_prior ? [{ key: "prior", label: "Prior year, same months", align: "right", render: (r) => (r.kind === "head" ? "" : money(r.prior)) }] : []),
   ];
@@ -65,7 +86,6 @@ export default function ProfitAndLoss() {
     const sec = (n) => data.sections.find((s) => s.section === n)?.total.months[i] || 0;
     return { month: fmtMonth(m), revenue: sec("Revenue"), costs: sec("Cost of sales") + sec("Overheads"), net: data.net_before_difference.months[i] };
   });
-  const entityName = options?.entities.find((e) => e.entity_id === entity)?.name;
 
   return (
     <>
@@ -94,9 +114,11 @@ export default function ProfitAndLoss() {
       )}
 
       <SectionTitle>Statement</SectionTitle>
+      <DrillBar drill={drill} note="Select a section heading to open or close it, an account for its entries this year, or a month's figure for that month." />
       <Card pad={0} rule={false}>
         <Table columns={columns} rows={rows} maxHeight={900} />
       </Card>
+      <EntriesDrawer query={drill.entries} onClose={drill.close} />
 
       <SectionTitle>Month by month</SectionTitle>
       <Card title="Revenue, costs and net profit" hint="Costs are cost of sales plus overheads. Net profit excludes the intercompany difference, which has no month.">

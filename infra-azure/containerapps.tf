@@ -52,6 +52,27 @@ resource "azurerm_container_app" "app" {
     # limits - lives in that replica's working copy of the database.
     max_replicas = 1
 
+    # Warm in business hours, so a reviewer opening the link never waits on a
+    # cold start; at zero outside them. Defining any rule replaces the default
+    # HTTP rule, so it is declared too: a visit at night still wakes the app.
+    dynamic "custom_scale_rule" {
+      for_each = var.business_hours.enabled ? [1] : []
+      content {
+        name             = "business-hours"
+        custom_rule_type = "cron"
+        metadata = {
+          timezone        = var.business_hours.timezone
+          start           = var.business_hours.start
+          end             = var.business_hours.end
+          desiredReplicas = "1"
+        }
+      }
+    }
+    http_scale_rule {
+      name                = "http"
+      concurrent_requests = "10"
+    }
+
     container {
       name   = "frontend"
       image  = "${var.image_repo}/frontend:${var.image_tag}"

@@ -1,6 +1,6 @@
-# A tripwire, not a cap: Azure budgets only notify. At rest this deployment
-# costs nothing, so the budget is reached only by something unplanned, such as
-# a replica left warm.
+# A tripwire, not a cap: Azure budgets only notify. The planned spend is the
+# business-hours replica, a few dollars a month; the budget is reached only by
+# something unplanned, such as a replica left warm around the clock.
 resource "azurerm_consumption_budget_resource_group" "main" {
   name              = "budget-${var.prefix}-monthly"
   resource_group_id = azurerm_resource_group.main.id

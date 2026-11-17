@@ -244,6 +244,68 @@ def balance_sheet(entity: str = GROUP, as_at: str | None = None) -> dict[str, An
     }
 
 
+# ------------------------------------------------------------- drill down --
+def entries(entity: str, account_code: str, statement: str, as_at: str | None = None,
+            fin_year: int | None = None, month: str | None = None) -> dict[str, Any]:
+    """The ledger lines behind one figure on a statement, under the statement's
+    own rules - the same scope, sign and group eliminations - so the lines add
+    up to the figure on screen and the test suite holds them to it.
+
+      bs   the balance at `as_at`: the opening balance at the start of that
+           financial year, then every entry since, with a running balance.
+      pnl  the account for `fin_year`, or one month of it (`month`, a month end).
+    """
+    acc = db.raw("SELECT account_code, name, type, section, normal_side FROM gl_account WHERE account_code = ?", [account_code])
+    if not acc or account_code == "3100":
+        raise ValueError("No entries to show: that line is calculated, not posted.")
+    acc = acc[0]
+    where, params = _scope(entity)
+    group_ids = _group_ids()
+    marks = ", ".join("?" for _ in group_ids)
+    consolidated = entity == GROUP
+    ends = month_ends()
+    if statement == "bs":
+        at = date.fromisoformat(as_at) if as_at else ends[-1]
+        at = max((m for m in ends if m <= at), default=ends[0])
+        start, last = fy_start(fy_of(at)), at
+        sign = acc["normal_side"]
+        # Group: only balances between group entities on the related-party accounts are removed.
+        drop = consolidated and account_code in (ref.RP_RECEIVABLE, ref.RP_PAYABLE)
+    elif statement == "pnl":
+        fin_year = fin_year or fy_of(ends[-1])
+        start, last = fy_start(fin_year), max(m for m in ends if fy_of(m) == fin_year)
+        if month:
+            last = date.fromisoformat(month)
+            start = last.replace(day=1)
+        sign = -1 if acc["type"] in ("revenue", "other_income") else 1
+        drop = consolidated
+    else:
+        raise ValueError("statement must be bs or pnl")
+    keep = f"AND NOT coalesce(l.counterparty_id IN ({marks}), false)" if drop else ""
+    keep_params = group_ids if drop else []
+    opening = 0
+    if statement == "bs":
+        opening = db.raw(f"""SELECT coalesce(sum(l.amount_cents), 0) AS c FROM gl_line l
+                              WHERE {where} AND l.account_code = ? AND l.posting_date < ? {keep}""",
+                         [*params, account_code, start, *keep_params])[0]["c"] * sign
+    rows = db.raw(f"""
+        SELECT l.posting_date, l.entity_id, l.journal_id, l.description, l.counterparty_id, l.project_id, l.source, l.amount_cents
+        FROM gl_line l
+        WHERE {where} AND l.account_code = ? AND l.posting_date BETWEEN ? AND ? {keep}
+        ORDER BY l.posting_date, l.line_id""", [*params, account_code, start, last, *keep_params])
+    running, lines = opening, []
+    for r in rows:
+        cents = r["amount_cents"] * sign
+        running += cents
+        lines.append({"date": r["posting_date"].isoformat(), "entity_id": r["entity_id"], "journal_id": r["journal_id"],
+                      "description": r["description"], "counterparty_id": r["counterparty_id"], "project_id": r["project_id"],
+                      "source": r["source"], "amount": cents / 100, "balance": running / 100 if statement == "bs" else None})
+    return {"entity": entity, "account_code": account_code, "name": acc["name"], "section": acc["section"], "statement": statement,
+            "from": start.isoformat(), "to": last.isoformat(), "opening": opening / 100 if statement == "bs" else None,
+            "movement": (running - opening) / 100, "closing": running / 100, "count": len(lines),
+            "eliminated": bool(drop), "lines": lines}
+
+
 # ---------------------------------------------------------- related party --
 def _pair_lines(creditor: str, debtor: str, as_at: date) -> tuple[list[dict], list[dict]]:
     theirs = db.raw("""SELECT posting_date, description, amount_cents AS cents, journal_id FROM gl_line

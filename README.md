@@ -31,8 +31,9 @@ shows its working.
   `infra-azure/build.sha256` - an image that cannot reproduce the pinned output
   is never published.
 - **Azure**: one Container App (nginx + FastAPI sidecar), consumption plan,
-  scale to zero, public images on GHCR, a A$3 budget tripwire. Nothing costs
-  money at rest.
+  one replica warm 08:00-18:00 Brisbane time on weekdays (a cron scale rule)
+  and zero outside them, public images on GHCR, a A$10 budget tripwire. The
+  warm hours are the only planned spend, a few dollars a month.
 
 ## Run it
 

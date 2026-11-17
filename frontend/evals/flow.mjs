@@ -74,6 +74,17 @@ await page.screenshot({ path: `${OUT}/flow-submitted.png`, fullPage: true });
 await page.goto(`${BASE}/bid-summary?tab=audit`, { waitUntil: "networkidle" });
 await expect("the submission is in the audit log", page.getByText("B-2629 revision 2").first());
 
+await page.goto(`${BASE}/balance-sheet`, { waitUntil: "networkidle" });
+await page.getByRole("button", { name: "Drill up" }).click();
+await waitCount(page.getByRole("button", { name: "Entries behind Cash at bank" }), 0, "drill up left the accounts showing");
+await page.getByRole("button", { name: "Drill down" }).click();
+await page.getByRole("button", { name: "Entries behind Cash at bank" }).click();
+await expect("a balance drills to entries that agree with it", page.getByText("Agrees with the statement"));
+await page.keyboard.press("Escape");
+await page.goto(`${BASE}/profit-and-loss`, { waitUntil: "networkidle" });
+await page.getByRole("button", { name: /^Entries behind Contract revenue, / }).first().click();
+await expect("a month's figure drills to that month's entries", page.getByText("Agrees with the statement"));
+
 const reset = await page.evaluate(async (tok) => (await fetch("/api/reset", { method: "POST", headers: { "X-Write-Token": tok } })).status, TOKEN);
 if (reset !== 200) throw new Error(`reset returned ${reset}`);
 await browser.close();

@@ -50,10 +50,27 @@ variable "budget_alert_email" {
   type        = string
 }
 
+variable "business_hours" {
+  description = "Keep one replica warm on a schedule (cron, in the timezone given). Outside it the app scales to zero and the working copy of the database goes back to the build."
+  type = object({
+    enabled  = bool
+    timezone = string
+    start    = string
+    end      = string
+  })
+  default = {
+    enabled  = true
+    timezone = "Australia/Brisbane"
+    start    = "0 8 * * 1-5"
+    end      = "0 18 * * 1-5"
+  }
+}
+
 variable "budget_aud" {
   description = "Monthly budget for the resource group, in the subscription's currency. A tripwire, not a cap."
   type        = number
-  default     = 3
+  # Warm for business hours is about A$4-8 a month once the free grant is used.
+  default = 10
 }
 
 variable "llm_base_url" {

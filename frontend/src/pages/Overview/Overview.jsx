@@ -55,6 +55,11 @@ export default function Overview() {
       </Grid>
 
       <SectionTitle>The three workflow systems</SectionTitle>
+      <p style={{ fontSize: 13, margin: "0 0 12px", maxWidth: 820, lineHeight: 1.5 }}>
+        Not dashboards: people do their jobs in these - draft, submit, approve, reconcile - and the rules hold whoever is acting.
+        <b> Each is modelled on a system I designed and built that runs in production at a construction group.</b> The code and the
+        data here are new, written for this demo. Try them: pick who you are acting as at the top.
+      </p>
       <Grid cols={3} min={300}>
         <SystemCard icon={ClipboardList} title="Bid Summary" to="/bid-summary"
           what="The one-page commercial summary of a tender, with every price change locked as an immutable, numbered revision. Linked to the CRM, imports and exports the estimating workbook, renders the PDF."
