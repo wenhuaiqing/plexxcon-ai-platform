@@ -43,8 +43,8 @@ export default function Overview() {
       />
       <Callout tone="neutral" title="What this is">
         Built with AI (Claude Code) for an application to Plexxcon, and named for it. Not affiliated with or endorsed by Plexxcon; the jobs,
-        suppliers, ledgers and people are invented. The three systems are rebuilds, on synthetic data, of the kind of tools I have built and
-        run in production for a construction group - not copies of them, and not a guess at how Plexxcon works.
+        suppliers, ledgers and people are invented. The three systems and the three finance reports are rebuilds, on synthetic data, of ones I
+        have built and run in production for a construction group - not copies of them, and not a guess at how Plexxcon works.
       </Callout>
       <Grid cols={4} min={180}>
         <Stat label="Workflow systems" value="3" emphasis sub="Each with its own write rules and audit trail" />
@@ -88,7 +88,8 @@ export default function Overview() {
             <Link to="/related-party"><Button>Related Party Balance</Button></Link>
           </div>
           <p style={{ fontSize: 12.5, color: t.textMuted, marginBottom: 0 }}>
-            Three intercompany breaks are seeded in the ledger. The Related Party Balance page finds each one from the two ledgers and says why.
+            Modelled on finance reports I built that run in production. Every figure drills down to the ledger entries that make it, and three
+            intercompany breaks are seeded in the ledger: the Related Party Balance page finds each one from the two ledgers and says why.
           </p>
         </Card>
         <Card title={<span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}><Bot size={16} /> Data agent</span>}

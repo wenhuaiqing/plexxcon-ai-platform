@@ -36,4 +36,5 @@ export const FINANCE_ICON = Landmark;
 // A line under a sidebar heading, where the heading alone undersells the group.
 export const GROUP_NOTES = {
   "Workflow systems": "Where the work is done. Modelled on systems I built that run in production.",
+  "Finance reports": "Modelled on reports I built that run in production.",
 };
