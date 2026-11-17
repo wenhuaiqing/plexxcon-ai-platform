@@ -33,6 +33,8 @@ from src.settings import settings  # noqa: E402
 MANIFEST = REPO_ROOT / "infra-azure" / "build.sha256"
 # Binary columns are rendered by a PDF library and are not part of the pinned output.
 UNPINNED = {"schema_migrations", "msr_document_blob", "bid_revision_pdf", "kv"}
+# Rendered PDF columns in tables that are otherwise pinned: the rest of the row still is.
+UNPINNED_COLUMNS = {"supplier_feed": ["pdf"]}
 
 
 def table_digests(con: duckdb.DuckDBPyConnection) -> list[str]:
@@ -43,7 +45,9 @@ def table_digests(con: duckdb.DuckDBPyConnection) -> list[str]:
         if table in UNPINNED:
             continue
         digest = hashlib.sha256()
-        for row in con.execute(f"SELECT * FROM {table} ORDER BY ALL").fetchall():
+        cols = UNPINNED_COLUMNS.get(table)
+        select = f"SELECT * EXCLUDE ({', '.join(cols)})" if cols else "SELECT *"
+        for row in con.execute(f"{select} FROM {table} ORDER BY ALL").fetchall():
             digest.update(("\x1f".join("" if v is None else str(v) for v in row) + "\n").encode("utf-8"))
         lines.append(f"{digest.hexdigest()}  {table}")
     return lines
