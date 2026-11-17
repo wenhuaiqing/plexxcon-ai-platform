@@ -1,0 +1,39 @@
+[project]
+name = "plexxcon-ai-platform-backend"
+version = "0.1.0"
+description = "FastAPI backend for a construction operations platform demo: three workflow systems, finance reporting and a graded data agent. Synthetic data."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "python-dotenv>=1.0",
+    "openai>=1.40",
+    "duckdb>=1.0",
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "langgraph>=0.2",
+    "langchain-core>=0.3",
+    "sse-starlette>=2.1",
+    "pyyaml>=6.0",
+    "httpx>=0.27",
+    "fpdf2>=2.7",
+    "pypdf>=4.0",
+    "openpyxl>=3.1",
+    "python-multipart>=0.0.9",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
