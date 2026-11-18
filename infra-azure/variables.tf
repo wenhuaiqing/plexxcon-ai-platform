@@ -51,25 +51,27 @@ variable "budget_alert_email" {
 }
 
 variable "business_hours" {
-  description = "Keep one replica warm on a schedule (cron, in the timezone given). Outside it the app scales to zero and the working copy of the database goes back to the build."
+  description = "Keep one replica warm on weekdays between these hours (Windows time zone name; E. Australia Standard Time is Brisbane). Outside them the app scales to zero, and each switch restarts it from the built data."
   type = object({
-    enabled  = bool
-    timezone = string
-    start    = string
-    end      = string
+    enabled   = bool
+    time_zone = string
+    start     = number
+    end       = number
+    days      = list(string)
   })
   default = {
-    enabled  = true
-    timezone = "Australia/Brisbane"
-    start    = "0 8 * * 1-5"
-    end      = "0 18 * * 1-5"
+    enabled   = true
+    time_zone = "E. Australia Standard Time"
+    start     = 8
+    end       = 18
+    days      = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
   }
 }
 
 variable "budget_aud" {
   description = "Monthly budget for the resource group, in the subscription's currency. A tripwire, not a cap."
   type        = number
-  # Warm for business hours is about A$4-8 a month once the free grant is used.
+  # Warm for business hours at the idle rate is about A$3 a month after the free grant.
   default = 10
 }
 

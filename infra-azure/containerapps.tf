@@ -23,7 +23,9 @@ resource "azurerm_container_app" "app" {
   revision_mode                = "Single"
 
   lifecycle {
-    ignore_changes = [workload_profile_name]
+    # min_replicas is switched by the business-hours schedule (schedule.tf);
+    # a deploy during the day must not switch it back.
+    ignore_changes = [workload_profile_name, template[0].min_replicas]
   }
 
   ingress {
@@ -52,22 +54,10 @@ resource "azurerm_container_app" "app" {
     # limits - lives in that replica's working copy of the database.
     max_replicas = 1
 
-    # Warm in business hours, so a reviewer opening the link never waits on a
-    # cold start; at zero outside them. Defining any rule replaces the default
-    # HTTP rule, so it is declared too: a visit at night still wakes the app.
-    dynamic "custom_scale_rule" {
-      for_each = var.business_hours.enabled ? [1] : []
-      content {
-        name             = "business-hours"
-        custom_rule_type = "cron"
-        metadata = {
-          timezone        = var.business_hours.timezone
-          start           = var.business_hours.start
-          end             = var.business_hours.end
-          desiredReplicas = "1"
-        }
-      }
-    }
+    # Scale to zero on no traffic; any visit wakes it. Business hours are kept
+    # warm by schedule.tf, which raises min_replicas to 1 - a replica held by
+    # the minimum is billed at the idle rate, one started by a scale rule at
+    # the active rate (about eight times the vCPU price).
     http_scale_rule {
       name                = "http"
       concurrent_requests = "10"
@@ -89,8 +79,10 @@ resource "azurerm_container_app" "app" {
       name  = "backend"
       image = "${var.image_repo}/backend:${var.image_tag}"
       # The data is small; the build ran in the image, so this only serves it.
-      cpu    = 0.5
-      memory = "1Gi"
+      # Measured over a working day: peak 0.1 cores and 188 MiB for both
+      # containers together, so the smallest size each.
+      cpu    = 0.25
+      memory = "0.5Gi"
 
       readiness_probe {
         transport               = "HTTP"
