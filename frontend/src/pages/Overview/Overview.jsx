@@ -43,8 +43,8 @@ export default function Overview() {
       />
       <Callout tone="neutral" title="What this is">
         Built with AI (Claude Code) for an application to Plexxcon, and named for it. Not affiliated with or endorsed by Plexxcon; the jobs,
-        suppliers, ledgers and people are invented. The three systems and the three finance reports are rebuilds, on synthetic data, of ones I
-        have built and run in production for a construction group - not copies of them, and not a guess at how Plexxcon works.
+        suppliers, ledgers and people are invented. The three systems and the three finance reports are the kind of tools I build and run in production
+        for a construction group, written from scratch for this demo - no code, data or documents from any employer, and not a guess at how Plexxcon works.
       </Callout>
       <Grid cols={4} min={180}>
         <Stat label="Workflow systems" value="3" emphasis sub="Each with its own write rules and audit trail" />
@@ -57,8 +57,8 @@ export default function Overview() {
       <SectionTitle>The three workflow systems</SectionTitle>
       <p style={{ fontSize: 13, margin: "0 0 12px", maxWidth: 820, lineHeight: 1.5 }}>
         Not dashboards: people do their jobs in these - draft, submit, approve, reconcile - and the rules hold whoever is acting.
-        <b> Each is modelled on a system I designed and built that runs in production at a construction group.</b> The code and the
-        data here are new, written for this demo. Try them: pick who you are acting as at the top.
+        <b> They are the kind of system I design, build and run in production for a construction group.</b> Everything here was
+        written from scratch for this demo, on invented data. Try them: pick who you are acting as at the top.
       </p>
       <Grid cols={3} min={300}>
         <SystemCard icon={ClipboardList} title="Bid Summary" to="/bid-summary"
@@ -88,7 +88,7 @@ export default function Overview() {
             <Link to="/related-party"><Button>Related Party Balance</Button></Link>
           </div>
           <p style={{ fontSize: 12.5, color: t.textMuted, marginBottom: 0 }}>
-            Modelled on finance reports I built that run in production. Every figure drills down to the ledger entries that make it, and three
+            The kind of finance reports I build and run in production, written from scratch here. Every figure drills down to the ledger entries that make it, and three
             intercompany breaks are seeded in the ledger: the Related Party Balance page finds each one from the two ledgers and says why.
           </p>
         </Card>
