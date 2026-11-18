@@ -108,8 +108,19 @@ export default function UnifiedOrb({ dockedHidden = false } = {}) {
   //   - panel opens (desktop) or sheet expands (mobile) - so reopening
   //     the assistant always lands on the latest turn, not the first conversation
   //     in the persisted history (chat convention: ChatGPT/WhatsApp/etc.).
+  //   Except when the latest turn is an answer: land on its first line, so a
+  //   long table does not open scrolled to its last row.
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el) return;
+    const last = messages[messages.length - 1];
+    const cards = el.querySelectorAll("[data-answer]");
+    const card = cards[cards.length - 1];
+    if (!running && last && last.role !== "user" && card) {
+      el.scrollTop = Math.max(0, el.scrollTop + card.getBoundingClientRect().top - el.getBoundingClientRect().top - 8);
+    } else {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages, running, open, mobileExpanded]);
 
   // Persist the conversation to sessionStorage on every change. Cheap -
@@ -528,7 +539,7 @@ export default function UnifiedOrb({ dockedHidden = false } = {}) {
           >
             {renderHeader(() => setMobileExpanded(false))}
             {renderBody()}
-            {renderMobileInput({ autoFocus: true })}
+            {renderMobileInput({ autoFocus: false })}
           </MobileBottomSheet>
         )}
       </>
@@ -771,9 +782,33 @@ function TraceBlock({ trace, t }) {
   );
 }
 
+// A table wider than the card says so, so the columns past the edge (often
+// the amounts) are not missed on a phone.
+function WideTable({ t, node, ...props }) {
+  const ref = useRef(null);
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const check = () => setWide(el.scrollWidth > el.clientWidth + 2);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div style={{ margin: "4px 0 8px" }}>
+      <div ref={ref} style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <table {...props} style={{ borderCollapse: "collapse", fontSize: 12, minWidth: "100%" }} />
+      </div>
+      {wide && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>Swipe the table sideways for more columns.</div>}
+    </div>
+  );
+}
+
 function AnswerCard({ data, t }) {
   return (
-    <div style={{
+    <div data-answer style={{
       background: `linear-gradient(135deg, ${t.accentGlow} 0%, ${t.accent2Glow} 100%)`,
       border: `1px solid ${t.borderBright}`,
       borderRadius: 12,
@@ -886,6 +921,11 @@ function markdownComponents(t) {
         }}
       />
     ),
+    // Tables scroll sideways inside the card rather than crushing their columns
+    // into one letter per line on a phone.
+    table: (props) => <WideTable t={t} {...props} />,
+    th: (props) => <th {...props} style={{ textAlign: "left", padding: "4px 10px 4px 0", fontWeight: 600, whiteSpace: "nowrap", borderBottom: `1px solid ${t.border}`, color: t.textMuted }} />,
+    td: (props) => <td {...props} style={{ padding: "4px 10px 4px 0", whiteSpace: "nowrap", borderBottom: `1px solid ${t.border}`, fontVariantNumeric: "tabular-nums" }} />,
     h1: (props) => <h3 {...props} style={{ margin: "8px 0 6px", fontSize: 15, fontWeight: 600 }} />,
     h2: (props) => <h3 {...props} style={{ margin: "8px 0 6px", fontSize: 14, fontWeight: 600 }} />,
     h3: (props) => <h3 {...props} style={{ margin: "8px 0 4px", fontSize: 13, fontWeight: 600 }} />,

@@ -45,13 +45,31 @@ def _used(state: GraphState) -> list[AgentName]:
     return used
 
 
+def _label(column: str) -> str:
+    """variance_amount -> Variance amount: a person reads the table, not a database."""
+    text = column.replace("_", " ").strip()
+    return text[:1].upper() + text[1:]
+
+
+def _cell(v: object) -> str:
+    if v is None:
+        return ""
+    if isinstance(v, bool):
+        return "yes" if v else "no"
+    if isinstance(v, float):
+        return f"{v:,.2f}"
+    if isinstance(v, int) and abs(v) >= 10_000:   # years and job numbers stay as written
+        return f"{v:,}"
+    return str(v)
+
+
 def _plain(result: DataQueryResult) -> str:
     if not result.answered:
         return result.cannot_answer_reason or "I could not answer that from the data."
     if not result.rows:
         return f"{result.interpretation} Nothing matched."
-    head = "| " + " | ".join(result.columns) + " |\n|" + "|".join(" --- " for _ in result.columns) + "|\n"
-    body = "\n".join("| " + " | ".join("" if v is None else str(v) for v in row) + " |" for row in result.rows[:8])
+    head = "| " + " | ".join(_label(c) for c in result.columns) + " |\n|" + "|".join(" --- " for _ in result.columns) + "|\n"
+    body = "\n".join("| " + " | ".join(_cell(v) for v in row) + " |" for row in result.rows[:8])
     more = f"\n\n{result.row_count - 8} more row(s) not shown." if result.row_count > 8 else ""
     return f"{result.interpretation}\n\n{head}{body}{more}"
 
